@@ -1,0 +1,871 @@
+<?php
+// guard-dashboard.php
+// Simplified, fully responsive version.
+// Same backend endpoints as before: get_appointments.php, mark_attended.php, clear_all.php
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guard Dashboard - PSA National ID Appointment System</title>
+<style>
+/* ══════════════════════════════════════════
+   BASE / RESET
+══════════════════════════════════════════ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --blue: #1a65a4;
+    --blue-dark: #144f82;
+    --red: #dc2626;
+    --red-dark: #b91c1c;
+    --green: #16a34a;
+    --ink: #0f172a;
+    --slate: #475569;
+    --line: #e2e8f0;
+    --bg: #f4f6f9;
+    --radius: 10px;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    line-height: 1.4;
+}
+
+img { max-width: 100%; }
+button { font-family: inherit; }
+
+/* ══════════════════════════════════════════
+   HEADER
+══════════════════════════════════════════ */
+.header {
+    background-color: var(--blue);
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.logo-container { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo-img { height: 44px; width: auto; }
+.brand-text { color: white; font-weight: 700; font-size: 15px; line-height: 1.2; }
+.brand-text small { display: block; font-weight: 400; font-size: 11.5px; opacity: .85; }
+
+/* Guard identity strip */
+.guard-strip {
+    background-color: var(--ink);
+    color: white;
+    padding: 9px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    border-bottom: 3px solid var(--red);
+}
+.guard-badge {
+    background-color: var(--red);
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-left: 8px;
+}
+#liveClock { opacity: .8; font-size: 12.5px; }
+
+/* ══════════════════════════════════════════
+   MAIN LAYOUT
+══════════════════════════════════════════ */
+.main-content {
+    flex: 1;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+/* Top bar: title + search + clear-all */
+.top-bar {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    padding: 16px;
+    margin-bottom: 14px;
+}
+.top-bar h1 {
+    font-size: 18px;
+    color: var(--blue);
+    margin-bottom: 4px;
+}
+.top-bar .sub {
+    font-size: 13px;
+    color: var(--slate);
+    margin-bottom: 14px;
+}
+.search-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.search-row input {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+    font-size: 15px;
+}
+.search-row input:focus { outline: none; border-color: var(--blue); }
+.btn-clear {
+    background: white;
+    color: var(--red);
+    border: 1.5px solid #fca5a5;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.btn-clear:active { background: #fef2f2; }
+
+/* Stats row */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.stat {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    padding: 12px 8px;
+    text-align: center;
+}
+.stat .num { display: block; font-size: 22px; font-weight: 700; color: var(--blue); }
+.stat.danger .num { color: var(--red); }
+.stat.success .num { color: var(--green); }
+.stat .label { font-size: 11px; color: var(--slate); font-weight: 600; }
+
+/* ══════════════════════════════════════════
+   SCHEDULE BLOCK (hour group)
+══════════════════════════════════════════ */
+.schedule-block {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    margin-bottom: 14px;
+    overflow: hidden;
+}
+.block-banner {
+    background: var(--blue);
+    color: white;
+    padding: 12px 16px;
+    font-size: 14.5px;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.block-banner.full { background: #991b1b; }
+.slot-pill {
+    background: rgba(255,255,255,.22);
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.date-row {
+    background: #f8fafc;
+    color: var(--slate);
+    font-weight: 700;
+    padding: 8px 16px;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--line);
+}
+.countdown-chip {
+    display: inline-block;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    color: #c2410c;
+    border-radius: 10px;
+    padding: 2px 9px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* ── Desktop table (shown ≥ 700px) ── */
+.manifest-table { width: 100%; border-collapse: collapse; display: none; }
+.manifest-table th {
+    background: #f1f5f9;
+    color: var(--slate);
+    text-align: left;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--line);
+    white-space: nowrap;
+}
+.manifest-table td {
+    padding: 11px 14px;
+    font-size: 13.5px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+.manifest-table tbody tr:last-child td { border-bottom: none; }
+.manifest-table tbody tr:hover { background: #f8fafc; }
+.col-name { font-weight: 700; }
+.col-ref { font-family: monospace; font-size: 12px; color: #64748b; }
+.status-pill {
+    background: #dcfce7;
+    color: var(--green);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ── Mobile / tablet card list (shown < 700px) ── */
+.entry-cards { display: block; }
+.entry-card {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.entry-card:last-child { border-bottom: none; }
+.entry-card .row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.entry-card .name { font-weight: 700; font-size: 15.5px; }
+.entry-card .num-tag { font-size: 12px; color: #94a3b8; font-weight: 600; }
+.entry-card .field {
+    font-size: 13.5px;
+    color: var(--slate);
+    margin-bottom: 3px;
+}
+.entry-card .field b { color: var(--ink); font-weight: 600; }
+.entry-card .ref {
+    font-family: monospace;
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+.entry-card .card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* ══════════════════════════════════════════
+   BUTTONS  (big & tappable everywhere)
+══════════════════════════════════════════ */
+.btn-attended, .btn-print {
+    border: none;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 10px 14px;
+    min-height: 40px;
+}
+.btn-attended { background: var(--blue); color: white; flex: 1; }
+.btn-attended:active { background: var(--blue-dark); }
+.btn-print { background: #f8fafc; color: var(--blue); border: 1.5px solid #93c5fd; flex: 1; }
+.btn-print:active { background: #eaf2fa; }
+
+/* ── Empty state ── */
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: #94a3b8;
+    font-size: 15px;
+}
+.empty-state .icon { font-size: 40px; display: block; margin-bottom: 10px; }
+
+/* ── Toast ── */
+#toast {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    background: var(--ink);
+    color: white;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    display: none;
+    z-index: 9999;
+    border-left: 5px solid var(--blue);
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+/* ── Modal ── */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 8000;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+    background: white;
+    border-radius: 14px;
+    padding: 28px 24px;
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+}
+.modal-icon { font-size: 36px; margin-bottom: 10px; }
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.modal-msg { font-size: 14px; color: var(--slate); margin-bottom: 22px; line-height: 1.5; }
+.modal-actions { display: flex; flex-direction: column; gap: 8px; }
+.modal-btn {
+    padding: 13px;
+    border-radius: 9px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    min-height: 46px;
+}
+.modal-btn-confirm { background: var(--blue); color: white; }
+.modal-btn-confirm.danger { background: var(--red); }
+.modal-btn-cancel { background: #f1f5f9; color: var(--slate); }
+
+/* ── Printable slip ── */
+#printArea { display: none; }
+.print-slip-card {
+    max-width: 520px;
+    margin: 30px auto;
+    border: 1.5px solid var(--blue);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: Georgia, serif;
+}
+.print-slip-header { background: var(--blue); color: white; padding: 16px 20px; }
+.print-slip-header .t1 { font-size: 16px; font-weight: 700; }
+.print-slip-header .t2 { font-size: 12px; opacity: .9; margin-top: 2px; }
+.print-slip-body { padding: 20px; }
+.print-slip-ref { text-align: center; background: #eaf2fa; border-radius: 6px; padding: 12px; margin-bottom: 16px; }
+.print-slip-ref .lbl { font-size: 11px; color: var(--slate); text-transform: uppercase; }
+.print-slip-ref .val { font-size: 20px; font-weight: 700; color: var(--blue); margin-top: 3px; }
+.print-slip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.print-slip-item .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; }
+.print-slip-item .val { font-size: 14px; font-weight: 700; margin-top: 2px; }
+.print-slip-foot { margin-top: 16px; font-size: 11.5px; color: var(--slate); border-top: 1px solid var(--line); padding-top: 12px; }
+
+@media print {
+    body.print-mode .header, body.print-mode .guard-strip,
+    body.print-mode .main-content, body.print-mode .footer,
+    body.print-mode #toast, body.print-mode .modal-overlay { display: none !important; }
+    body.print-mode #printArea { display: block !important; }
+}
+
+/* ══════════════════════════════════════════
+   FOOTER (kept minimal)
+══════════════════════════════════════════ */
+.footer {
+    background: var(--blue);
+    color: white;
+    padding: 18px 20px;
+    text-align: center;
+    font-size: 12px;
+    opacity: .9;
+    margin-top: auto;
+}
+.footer a { color: white; text-decoration: underline; }
+
+/* ══════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+══════════════════════════════════════════ */
+
+/* Tablet and up: table appears instead of cards */
+@media (min-width: 700px) {
+    .manifest-table { display: table; }
+    .entry-cards { display: none; }
+}
+
+/* Small phones: stats stack 2x2 */
+@media (max-width: 480px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .top-bar h1 { font-size: 16px; }
+    .header { padding: 12px 14px; }
+    .logo-img { height: 38px; }
+    .brand-text { font-size: 13px; }
+    .brand-text small { font-size: 10.5px; }
+}
+
+/* Larger screens: a little more breathing room */
+@media (min-width: 900px) {
+    .main-content { padding: 24px 20px; }
+    .top-bar { padding: 20px 24px; }
+    .top-bar h1 { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+    <a href="national_id_appointment.php" class="logo-container">
+        <img class="logo-img" src="psa-logo.png" alt="PSA Logo">
+        <span class="brand-text">PSA National ID<small>Appointment System</small></span>
+    </a>
+</header>
+
+<div class="guard-strip">
+    <div>📍 Main Access Gate 1 <span class="guard-badge">Guard Terminal</span></div>
+    <div id="liveClock"></div>
+</div>
+
+<!-- MAIN -->
+<main class="main-content">
+
+    <div class="top-bar">
+        <h1>Appointment Manifest</h1>
+        <div class="sub">Live list of confirmed appointments. Max 50 per hour block. Updates automatically.</div>
+        <div class="search-row">
+            <input type="text" id="filterInput" oninput="renderDashboard()"
+                   placeholder="Search name, email, mobile, or reference no.">
+            <button class="btn-clear" onclick="confirmClearAll()">🗑 Clear All</button>
+        </div>
+    </div>
+
+    <div class="stats-row" id="statsBar"></div>
+
+    <div id="dashboardRoot"></div>
+
+</main>
+
+<footer class="footer">
+    Republic of the Philippines — Powered by <a href="https://psahelpline.ph" target="_blank" rel="noopener">PSAHelpline.ph</a>
+</footer>
+
+<div id="toast"></div>
+
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+        <div class="modal-icon" id="modalIcon"></div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-msg" id="modalMsg"></div>
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn" onclick="executeModalAction()"></button>
+            <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+'use strict';
+
+const MAX_SLOTS = 50;
+const AUTO_DELETE_MIN = 90;
+
+async function loadList() {
+    try {
+        const response = await fetch('get_appointments.php');
+        if (!response.ok) throw new Error('Network response was not ok');
+        return await response.json();
+    } catch (err) {
+        console.error('Failed to load appointments:', err);
+        showToast('⚠ Could not load appointments from server.', '#dc2626');
+        return [];
+    }
+}
+
+let _pendingAction = null;
+
+function getHourBlockKey(timeStr) {
+    const match = (timeStr || '').match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+    let h = +match[1];
+    const ap = match[3].toUpperCase();
+    if (ap === 'PM' && h !== 12) h += 12;
+    if (ap === 'AM' && h === 12) h = 0;
+    return String(h).padStart(2, '0');
+}
+function formatHour12(h) {
+    const ap = h >= 12 ? 'PM' : 'AM';
+    let h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    return h12 + ':00 ' + ap;
+}
+function getHourBlockLabel(hourKey) {
+    const h = parseInt(hourKey, 10);
+    return formatHour12(h) + ' – ' + formatHour12((h + 1) % 24);
+}
+function buildDate(dateStr, timeStr) {
+    if (!dateStr || !timeStr) return null;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+    let h = +match[1], min = +match[2];
+    const ap = match[3].toUpperCase();
+    if (ap === 'PM' && h !== 12) h += 12;
+    if (ap === 'AM' && h === 12) h = 0;
+    return new Date(y, m - 1, d, h, min, 0);
+}
+function groupBySlot(list) {
+    const map = {};
+    list.forEach(a => {
+        const hourKey = getHourBlockKey(a.time);
+        const key = a.date + '|' + (hourKey !== null ? hourKey : a.time);
+        if (!map[key]) {
+            map[key] = {
+                date: a.date,
+                dateLabel: a.dateLabel || a.date,
+                hourKey: hourKey,
+                time: hourKey !== null ? getHourBlockLabel(hourKey) : a.time,
+                entries: []
+            };
+        }
+        map[key].entries.push(a);
+    });
+    Object.values(map).forEach(g => {
+        g.entries.sort((a, b) => {
+            const da = buildDate(a.date, a.time);
+            const db = buildDate(b.date, b.time);
+            if (da && db) return da.getTime() - db.getTime();
+            return 0;
+        });
+    });
+    return Object.values(map).sort((a, b) => {
+        const dc = a.date.localeCompare(b.date);
+        if (dc !== 0) return dc;
+        return (a.hourKey || a.time).localeCompare(b.hourKey || b.time);
+    });
+}
+
+function esc(s) {
+    return String(s ?? '—')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+}
+
+let _toastTimer = null;
+function showToast(msg, borderColor) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderLeftColor = borderColor || '#1a65a4';
+    t.style.display = 'block';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+function openModal(icon, title, msg, confirmLabel, isDanger, action) {
+    document.getElementById('modalIcon').textContent  = icon;
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalMsg').textContent   = msg;
+    const btn = document.getElementById('modalConfirmBtn');
+    btn.textContent = confirmLabel;
+    btn.className = 'modal-btn modal-btn-confirm' + (isDanger ? ' danger' : '');
+    _pendingAction = action;
+    document.getElementById('modalOverlay').classList.add('active');
+}
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('active');
+    _pendingAction = null;
+}
+
+async function executeModalAction() {
+    if (!_pendingAction) return;
+
+    if (_pendingAction.type === 'clearAll') {
+        try {
+            const res = await fetch('clear_all.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'confirm=yes'
+            });
+            const result = await res.json();
+            closeModal();
+            if (result.status === 'success') {
+                showToast('🗑 All appointments cleared.', '#dc2626');
+            } else {
+                showToast('⚠ Failed to clear: ' + (result.message || 'Unknown error'), '#dc2626');
+            }
+            renderDashboard();
+        } catch (err) {
+            closeModal();
+            showToast('⚠ Connection error while clearing.', '#dc2626');
+        }
+        return;
+    }
+
+    if (_pendingAction.type === 'attended') {
+        const { id, name } = _pendingAction;
+        try {
+            const res = await fetch('mark_attended.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'id=' + encodeURIComponent(id)
+            });
+            const result = await res.json();
+            closeModal();
+            if (result.status === 'success') {
+                showToast(`✅ ${name} marked as Attended.`, '#16a34a');
+            } else {
+                showToast('⚠ Failed to update: ' + (result.message || 'Unknown error'), '#dc2626');
+            }
+            renderDashboard();
+        } catch (err) {
+            closeModal();
+            showToast('⚠ Connection error while updating.', '#dc2626');
+        }
+    }
+}
+
+function markAttended(id, name) {
+    openModal(
+        '✅',
+        'Confirm Attendance',
+        `Mark "${name}" as attended? They will be removed from the active manifest.`,
+        'Yes, Attended',
+        false,
+        { type: 'attended', id, name }
+    );
+}
+
+async function confirmClearAll() {
+    const all = await loadList();
+    if (all.length === 0) {
+        showToast('Manifest is already empty.', '#475569');
+        return;
+    }
+    openModal(
+        '🗑',
+        'Clear All Appointments',
+        `This will permanently remove all ${all.length} appointment(s). This cannot be undone. Are you sure?`,
+        'Yes, Clear All',
+        true,
+        { type: 'clearAll' }
+    );
+}
+
+async function printAppointment(refNumber) {
+    const all = await loadList();
+    const appt = all.find(a => a.refNumber === refNumber);
+    if (!appt) { showToast('⚠ Appointment not found.', '#dc2626'); return; }
+
+    document.getElementById('printArea').innerHTML = `
+        <div class="print-slip-card">
+            <div class="print-slip-header">
+                <div class="t1">PSA National ID — Appointment Slip</div>
+                <div class="t2">Philippine Statistics Authority — Republic of the Philippines</div>
+            </div>
+            <div class="print-slip-body">
+                <div class="print-slip-ref">
+                    <div class="lbl">Transaction Reference Number</div>
+                    <div class="val">${esc(appt.refNumber)}</div>
+                </div>
+                <div class="print-slip-grid">
+                    <div class="print-slip-item"><div class="lbl">Full Name</div><div class="val">${esc(appt.name)}</div></div>
+                    <div class="print-slip-item"><div class="lbl">Purpose</div><div class="val">${esc(appt.purpose)}</div></div>
+                    <div class="print-slip-item"><div class="lbl">Email</div><div class="val">${esc(appt.email)}</div></div>
+                    <div class="print-slip-item"><div class="lbl">Mobile</div><div class="val">${esc(appt.mobile)}</div></div>
+                    <div class="print-slip-item"><div class="lbl">Date</div><div class="val">${esc(appt.dateLabel || appt.date)}</div></div>
+                    <div class="print-slip-item"><div class="lbl">Time</div><div class="val">${esc(appt.time)}</div></div>
+                </div>
+                <div class="print-slip-foot">
+                    Verified at PSA CRS Civil Registry — Main Access Gate 1.
+                    Printed by Guard Station Terminal on ${new Date().toLocaleString('en-PH')}.
+                </div>
+            </div>
+        </div>`;
+
+    document.body.classList.add('print-mode');
+    window.print();
+}
+window.addEventListener('afterprint', function () {
+    document.body.classList.remove('print-mode');
+});
+
+function renderStats(all) {
+    let totalSlots = 0;
+    const slotGroups = groupBySlot(all);
+    slotGroups.forEach(g => { totalSlots += g.entries.length; });
+    const fullSlots = slotGroups.filter(g => g.entries.length >= MAX_SLOTS).length;
+    const remainingCapacity = (MAX_SLOTS * slotGroups.length) - totalSlots;
+
+    document.getElementById('statsBar').innerHTML = `
+        <div class="stat"><span class="num">${all.length}</span><span class="label">Total</span></div>
+        <div class="stat"><span class="num">${slotGroups.length}</span><span class="label">Hour Blocks</span></div>
+        <div class="stat ${fullSlots > 0 ? 'danger' : ''}"><span class="num">${fullSlots}</span><span class="label">Full Blocks</span></div>
+        <div class="stat success"><span class="num">${remainingCapacity < 0 ? 0 : remainingCapacity}</span><span class="label">Open Slots</span></div>
+    `;
+}
+
+async function renderDashboard() {
+    const filterVal = (document.getElementById('filterInput').value || '').toUpperCase().trim();
+    const allData = await loadList();
+    const root = document.getElementById('dashboardRoot');
+
+    renderStats(allData);
+
+    const filtered = filterVal
+        ? allData.filter(a =>
+            (a.name      || '').toUpperCase().includes(filterVal) ||
+            (a.purpose   || '').toUpperCase().includes(filterVal) ||
+            (a.refNumber || '').toUpperCase().includes(filterVal) ||
+            (a.email     || '').toUpperCase().includes(filterVal) ||
+            (a.mobile    || '').toUpperCase().includes(filterVal)
+          )
+        : allData;
+
+    if (filtered.length === 0) {
+        root.innerHTML = `
+            <div class="schedule-block">
+                <div class="empty-state">
+                    <span class="icon">📋</span>
+                    ${filterVal ? 'No appointments match your search.' : 'No confirmed appointments yet.'}
+                </div>
+            </div>`;
+        return;
+    }
+
+    const groups = groupBySlot(filtered);
+    let html = '';
+
+    groups.forEach(group => {
+        const count     = group.entries.length;
+        const isFull    = count >= MAX_SLOTS;
+        const remaining = Math.max(0, MAX_SLOTS - count);
+        const now       = Date.now();
+
+        let chip = '';
+        let soonestDeadline = null;
+        group.entries.forEach(a => {
+            const sched = buildDate(a.date, a.time);
+            if (sched) {
+                const deadline = sched.getTime() + AUTO_DELETE_MIN * 60000;
+                if (soonestDeadline === null || deadline < soonestDeadline) soonestDeadline = deadline;
+            }
+        });
+        if (soonestDeadline !== null) {
+            const minsLeft = Math.ceil((soonestDeadline - now) / 60000);
+            if (now < soonestDeadline && minsLeft <= 90) {
+                chip = ` <span class="countdown-chip">⏱ ${minsLeft} min</span>`;
+            }
+        }
+
+        html += `
+        <div class="schedule-block">
+            <div class="block-banner${isFull ? ' full' : ''}">
+                <span>🕒 ${esc(group.time)}${chip}</span>
+                <span class="slot-pill">${count}/${MAX_SLOTS}${isFull ? ' FULL' : ` · ${remaining} left`}</span>
+            </div>
+            <div class="date-row">📅 ${esc(group.dateLabel)}</div>
+
+            <!-- Desktop table -->
+            <table class="manifest-table">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Name</th><th>Purpose</th><th>Mobile</th>
+                        <th>Time</th><th>Reference</th><th>Status</th><th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+        group.entries.forEach((a, idx) => {
+            const safeName = esc(a.name);
+            const safeRef  = esc(a.refNumber);
+            html += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td class="col-name">${safeName}</td>
+                        <td>${esc(a.purpose)}</td>
+                        <td>${esc(a.mobile)}</td>
+                        <td>${esc(a.time)}</td>
+                        <td class="col-ref">${safeRef}</td>
+                        <td><span class="status-pill">✔ Confirmed</span></td>
+                        <td style="white-space:nowrap;">
+                            <button class="btn-attended" style="padding:7px 12px;font-size:12.5px;" data-id="${a.id}" data-name="${safeName}" onclick="markAttended(this.dataset.id, this.dataset.name)">✅ Attended</button>
+                            <button class="btn-print" style="padding:7px 12px;font-size:12.5px;" data-ref="${safeRef}" onclick="printAppointment(this.dataset.ref)">🖨 Print</button>
+                        </td>
+                    </tr>`;
+        });
+
+        html += `
+                </tbody>
+            </table>
+
+            <!-- Mobile / tablet cards -->
+            <div class="entry-cards">`;
+
+        group.entries.forEach((a, idx) => {
+            const safeName = esc(a.name);
+            const safeRef  = esc(a.refNumber);
+            html += `
+                <div class="entry-card">
+                    <div class="row-top">
+                        <span class="name">${safeName}</span>
+                        <span class="num-tag">#${idx + 1}</span>
+                    </div>
+                    <div class="field"><b>Purpose:</b> ${esc(a.purpose)}</div>
+                    <div class="field"><b>Time:</b> ${esc(a.time)} &nbsp; <b>Mobile:</b> ${esc(a.mobile)}</div>
+                    <div class="ref">Ref: ${safeRef}</div>
+                    <span class="status-pill">✔ Confirmed</span>
+                    <div class="card-actions">
+                        <button class="btn-attended" data-id="${a.id}" data-name="${safeName}" onclick="markAttended(this.dataset.id, this.dataset.name)">✅ Attended</button>
+                        <button class="btn-print" data-ref="${safeRef}" onclick="printAppointment(this.dataset.ref)">🖨 Print</button>
+                    </div>
+                </div>`;
+        });
+
+        html += `
+            </div>
+        </div>`;
+    });
+
+    root.innerHTML = html;
+}
+
+function updateClock() {
+    const now = new Date();
+    document.getElementById('liveClock').textContent =
+        now.toLocaleDateString('en-PH', { month:'short', day:'numeric' }) + '  ' +
+        now.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+renderDashboard();
+setInterval(renderDashboard, 5000);
+
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+</script>
+
+</body>
+</html>

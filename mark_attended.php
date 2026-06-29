@@ -1,0 +1,29 @@
+<?php
+// mark_attended.php
+require __DIR__ . '/db.php';
+header('Content-Type: application/json');
+
+$id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+
+if ($id <= 0) {
+    echo json_encode(['status' => 'error', 'message' => 'Missing or invalid id']);
+    exit;
+}
+
+try {
+    $stmt = $conn->prepare("UPDATE appointments SET status = 'Attended' WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+
+    if ($stmt->affected_rows === 0) {
+        echo json_encode(['status' => 'error', 'message' => 'No appointment found with that id (or already Attended)']);
+    } else {
+        echo json_encode(['status' => 'success']);
+    }
+
+    $stmt->close();
+} catch (mysqli_sql_exception $e) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'Update failed: ' . $e->getMessage()]);
+}
+?>
